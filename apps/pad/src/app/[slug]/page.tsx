@@ -14,7 +14,8 @@ const mockPractitioner = {
 };
 
 export default async function PublicBookingPage({ params }: { params: Promise<{ slug: string }> }) {
-  await params; // Next.js 15 requires params to be awaited
+  const { slug } = await params;
+  void slug; // will be used for DB lookup in production
   const p = mockPractitioner;
 
   return (
@@ -40,7 +41,7 @@ export default async function PublicBookingPage({ params }: { params: Promise<{ 
           {p.services.map((s) => (
             <Link
               key={s.id}
-              href={`/${params.slug}/book/${s.id}`}
+              href={`/${slug}/book/${s.id}`}
               className="block bg-white rounded-2xl border-2 border-slate-100 hover:border-brand-300 hover:shadow-md transition-all p-5 group"
             >
               <div className="flex items-start justify-between gap-4">
