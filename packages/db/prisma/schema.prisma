@@ -1,0 +1,388 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Shared ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // App relations
+  sparkCredits    SparkCredit[]
+  sparkJobs       SparkJob[]
+  bookings        Booking[]
+  practitioners   Practitioner[]
+  reviveConnections ReviveConnection[]
+  shieldApiKeys   ShieldApiKey[]
+  flowWallet      FlowWallet?
+  flowSessions    FlowSession[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PaymentEvent {
+  id        String   @id
+  type      String
+  app       String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([app, type])
+  @@map("payment_events")
+}
+
+// ─── Spark (Content Atomizer) ────────────────────────────────────────────────
+
+model SparkCredit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int      @default(0) // in paise
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions  SparkTransaction[]
+
+  @@unique([userId])
+  @@map("spark_credits")
+}
+
+model SparkTransaction {
+  id          String   @id @default(cuid())
+  creditId    String
+  credit      SparkCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  amount      Int      // positive = topup, negative = usage
+  description String
+  createdAt   DateTime @default(now())
+
+  @@map("spark_transactions")
+}
+
+enum SparkJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum SparkInputType {
+  TEXT
+  URL
+  AUDIO
+  VIDEO
+}
+
+model SparkJob {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputType   SparkInputType
+  inputData   String         @db.Text // text content or S3 key
+  durationMin Float?         // audio/video duration
+  costCents   Int
+  status      SparkJobStatus @default(PENDING)
+  results     Json?          // { twitter: "", linkedin: "", newsletter: "", ... }
+  errorMsg    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("spark_jobs")
+}
+
+// ─── Pad (BookPad) ────────────────────────────────────────────────────────────
+
+model Practitioner {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName     String
+  slug             String    @unique
+  bio              String?   @db.Text
+  avatarUrl        String?
+  timezone         String    @default("Asia/Kolkata")
+  bankAccountInfo  String?   @db.Text // JSON: bank account details for manual payouts
+  isPremium        Boolean   @default(false)
+  premiumUntil     DateTime?
+  customColor      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  services    PractitionerService[]
+  bookings    Booking[]
+  availability PractitionerAvailability[]
+
+  @@map("practitioners")
+}
+
+model PractitionerService {
+  id             String   @id @default(cuid())
+  practitionerId String
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?  @db.Text
+  durationMin    Int
+  depositPaise   Int      @default(0)
+  isActive       Boolean  @default(true)
+
+  bookings Booking[]
+
+  @@map("practitioner_services")
+}
+
+model PractitionerAvailability {
+  id             String @id @default(cuid())
+  practitionerId String
+  practitioner   Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int    // 0=Sunday, 6=Saturday
+  startTime      String // "09:00"
+  endTime        String // "17:00"
+
+  @@map("practitioner_availability")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+model Booking {
+  id               String        @id @default(cuid())
+  practitionerId   String
+  practitioner     Practitioner  @relation(fields: [practitionerId], references: [id])
+  serviceId        String
+  service          PractitionerService @relation(fields: [serviceId], references: [id])
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id])
+  clientName       String
+  clientEmail      String
+  clientPhone      String?
+  intakeData       Json?
+  startTime        DateTime
+  endTime          DateTime
+  status           BookingStatus @default(PENDING)
+  depositPaise     Int           @default(0)
+  platformFeePaise Int           @default(2500) // ₹25
+  razorpayOrderId  String?       @unique
+  razorpayPaymentId String?
+  notes            String?       @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([practitionerId, startTime])
+  @@map("bookings")
+}
+
+// ─── Revive (ReviveRecurr) ────────────────────────────────────────────────────
+
+model ReviveConnection {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantId          String   @unique // merchant's Razorpay account identifier
+  isActive            Boolean  @default(true)
+  totalRecoveredPaise Int      @default(0)
+  totalEarnedPaise    Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  recoveryEvents ReviveRecoveryEvent[]
+
+  @@map("revive_connections")
+}
+
+enum RecoveryStatus {
+  PENDING
+  RETRYING
+  RECOVERED
+  FAILED
+  ABANDONED
+}
+
+model ReviveRecoveryEvent {
+  id               String         @id @default(cuid())
+  connectionId     String
+  connection       ReviveConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  razorpayEventId  String         @unique
+  customerId       String
+  amountPaise      Int
+  currency         String
+  failureCode      String?
+  status           RecoveryStatus @default(PENDING)
+  retryCount       Int            @default(0)
+  nextRetryAt      DateTime?
+  recoveredAt      DateTime?
+  feePaise         Int?           // our 5% cut
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([connectionId, status])
+  @@map("revive_recovery_events")
+}
+
+// ─── Shield (TrustMark) ───────────────────────────────────────────────────────
+
+enum ShieldPlan {
+  PAYG
+  STARTER
+  GROWTH
+}
+
+model ShieldApiKey {
+  id                     String     @id @default(cuid())
+  userId                 String
+  user                   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keyHash                String     @unique // bcrypt hash of key
+  keyPrefix              String     // first 8 chars for display
+  label                  String
+  plan                   ShieldPlan @default(PAYG)
+  planRenewsAt           DateTime?
+  usageThisMonth         Int        @default(0)
+  monthlyLimit           Int?       // null = unlimited (PAYG)
+  isActive               Boolean    @default(true)
+  razorpaySubscriptionId String?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  verifications ShieldVerification[]
+
+  @@map("shield_api_keys")
+}
+
+enum VerificationResult {
+  CLEAN
+  SUSPICIOUS
+  SPAM
+  SCAM
+  HUMAN_REVIEWED
+}
+
+model ShieldVerification {
+  id         String             @id @default(cuid())
+  keyId      String
+  apiKey     ShieldApiKey       @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  content    String             @db.Text
+  language   String?
+  result     VerificationResult
+  score      Float              // 0-1 confidence
+  badgeToken String?            @unique
+  feePaise   Int                @default(100) // ₹1
+  createdAt  DateTime           @default(now())
+
+  @@index([keyId, createdAt(sort: Desc)])
+  @@map("shield_verifications")
+}
+
+// ─── Flow (FocusBurner) ───────────────────────────────────────────────────────
+
+model FlowWallet {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balancePaise Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  topups   FlowTopup[]
+  sessions FlowSession[]
+
+  @@map("flow_wallets")
+}
+
+model FlowTopup {
+  id                String   @id @default(cuid())
+  walletId          String
+  wallet            FlowWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amountPaise       Int
+  razorpayOrderId   String   @unique
+  razorpayPaymentId String?
+  createdAt         DateTime @default(now())
+
+  @@map("flow_topups")
+}
+
+enum FlowSessionType {
+  FOCUS_25
+  DEEP_50
+}
+
+enum FlowSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+}
+
+model FlowSession {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletId    String
+  wallet      FlowWallet        @relation(fields: [walletId], references: [id])
+  type        FlowSessionType
+  status      FlowSessionStatus @default(ACTIVE)
+  startedAt   DateTime          @default(now())
+  completedAt DateTime?
+  costPaise   Int               // 500 or 800 paise
+  streakDay   Int               @default(0)
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@map("flow_sessions")
+}
