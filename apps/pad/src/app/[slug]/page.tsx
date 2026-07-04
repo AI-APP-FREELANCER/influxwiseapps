@@ -13,7 +13,8 @@ const mockPractitioner = {
   ],
 };
 
-export default function PublicBookingPage({ params }: { params: { slug: string } }) {
+export default async function PublicBookingPage({ params }: { params: Promise<{ slug: string }> }) {
+  await params; // Next.js 15 requires params to be awaited
   const p = mockPractitioner;
 
   return (
