@@ -10,7 +10,8 @@
     "./webhooks": "./src/webhooks.ts"
   },
   "dependencies": {
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "@influxwise/config": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
