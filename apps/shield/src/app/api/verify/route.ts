@@ -71,7 +71,7 @@ Respond with ONLY a JSON object:
       max_tokens: 200,
       messages: [{ role: "user", content: prompt }],
     });
-    const raw = msg.content[0].type === "text" ? msg.content[0].text : "{}";
+    const raw = msg.content[0]?.type === "text" ? (msg.content[0] as { type: "text"; text: string }).text : "{}";
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
     result = parsed.result ?? "CLEAN";
     score = parsed.score ?? 0.99;
