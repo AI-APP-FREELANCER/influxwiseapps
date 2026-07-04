@@ -92,7 +92,7 @@ Respond with ONLY a JSON object:
         result,
         score,
         badgeToken: badgeToken ?? undefined,
-        feeCents: 1,
+        feePaise: 100,
       },
     }),
     db.shieldApiKey.update({

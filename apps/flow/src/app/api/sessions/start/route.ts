@@ -17,11 +17,10 @@ export async function POST(req: Request) {
   const cost = data.data.type === "FOCUS_25" ? PRICING.flow.session25min : PRICING.flow.session50min;
 
   const wallet = await db.flowWallet.findUnique({ where: { userId: session.user.id } });
-  if (!wallet || wallet.balanceCents < cost) {
+  if (!wallet || wallet.balancePaise < cost) {
     return NextResponse.json({ error: "Insufficient balance" }, { status: 402 });
   }
 
-  // Check no active session exists
   const active = await db.flowSession.findFirst({
     where: { userId: session.user.id, status: "ACTIVE" },
   });
@@ -34,7 +33,7 @@ export async function POST(req: Request) {
       userId: session.user.id,
       walletId: wallet.id,
       type: data.data.type,
-      costCents: cost,
+      costPaise: cost,
       status: "ACTIVE",
     },
   });

@@ -6,15 +6,15 @@ async function getStats() {
     db.user.count(),
     db.sparkJob.count({ where: { status: "COMPLETED" } }),
     db.booking.count({ where: { status: "CONFIRMED" } }),
-    db.reviveRecoveryEvent.aggregate({ where: { status: "RECOVERED" }, _sum: { feeCents: true } }),
+    db.reviveRecoveryEvent.aggregate({ where: { status: "RECOVERED" }, _sum: { feePaise: true } }),
     db.shieldVerification.count(),
     db.flowSession.count({ where: { status: "COMPLETED" } }),
   ]);
 
   const sparkRevenue = await db.sparkTransaction.aggregate({ where: { amount: { gt: 0 } }, _sum: { amount: true } });
-  const flowRevenue = await db.flowSession.aggregate({ where: { status: "COMPLETED" }, _sum: { costCents: true } });
-  const padRevenue = await db.booking.aggregate({ where: { status: { in: ["CONFIRMED", "COMPLETED"] } }, _sum: { platformFeeCents: true } });
-  const shieldRevenue = await db.shieldVerification.aggregate({ _sum: { feeCents: true } });
+  const flowRevenue = await db.flowSession.aggregate({ where: { status: "COMPLETED" }, _sum: { costPaise: true } });
+  const padRevenue = await db.booking.aggregate({ where: { status: { in: ["CONFIRMED", "COMPLETED"] } }, _sum: { platformFeePaise: true } });
+  const shieldRevenue = await db.shieldVerification.aggregate({ _sum: { feePaise: true } });
 
   return {
     users,
@@ -24,10 +24,10 @@ async function getStats() {
     verifications,
     revenue: {
       spark: sparkRevenue._sum.amount ?? 0,
-      flow: flowRevenue._sum.costCents ?? 0,
-      pad: padRevenue._sum.platformFeeCents ?? 0,
-      revive: recoveries._sum.feeCents ?? 0,
-      shield: shieldRevenue._sum.feeCents ?? 0,
+      flow: flowRevenue._sum.costPaise ?? 0,
+      pad: padRevenue._sum.platformFeePaise ?? 0,
+      revive: recoveries._sum.feePaise ?? 0,
+      shield: shieldRevenue._sum.feePaise ?? 0,
     },
   };
 }

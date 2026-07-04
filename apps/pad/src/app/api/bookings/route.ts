@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@influxwise/db";
-import { createPadBookingPaymentIntent } from "@influxwise/billing";
+import { createPadBookingOrder } from "@influxwise/billing";
 import { sendEmail, bookingConfirmationEmail } from "@influxwise/email";
 import { format } from "date-fns";
 
@@ -34,14 +34,11 @@ export async function POST(req: Request) {
   const startTime = new Date(data.data.startTime);
   const endTime = new Date(startTime.getTime() + service.durationMin * 60 * 1000);
 
-  // Check for conflicts
   const conflict = await db.booking.findFirst({
     where: {
       practitionerId: service.practitionerId,
       status: { in: ["CONFIRMED", "PENDING"] },
-      OR: [
-        { startTime: { lt: endTime }, endTime: { gt: startTime } },
-      ],
+      OR: [{ startTime: { lt: endTime }, endTime: { gt: startTime } }],
     },
   });
 
@@ -58,29 +55,28 @@ export async function POST(req: Request) {
       clientPhone: data.data.clientPhone,
       startTime,
       endTime,
-      depositCents: service.depositCents,
+      depositPaise: service.depositPaise,
       intakeData: data.data.intakeData,
-      status: service.depositCents > 0 ? "PENDING" : "CONFIRMED",
+      status: service.depositPaise > 0 ? "PENDING" : "CONFIRMED",
     },
   });
 
-  if (service.depositCents > 0 && service.practitioner.stripeAccountId && service.practitioner.stripeAccountEnabled) {
-    const pi = await createPadBookingPaymentIntent({
-      depositCents: service.depositCents,
-      practitionerStripeAccountId: service.practitioner.stripeAccountId,
+  if (service.depositPaise > 0) {
+    const order = await createPadBookingOrder({
+      depositPaise: service.depositPaise,
       clientEmail: data.data.clientEmail,
       metadata: { bookingId: booking.id, serviceId: service.id },
+      receipt: `booking_${booking.id}`,
     });
 
     await db.booking.update({
       where: { id: booking.id },
-      data: { stripePaymentIntentId: pi.id },
+      data: { razorpayOrderId: order.id },
     });
 
-    return NextResponse.json({ bookingId: booking.id, clientSecret: pi.client_secret, requiresPayment: true });
+    return NextResponse.json({ bookingId: booking.id, razorpayOrderId: order.id, requiresPayment: true });
   }
 
-  // No deposit — send confirmation email immediately
   const emailContent = bookingConfirmationEmail({
     clientName: data.data.clientName,
     practitionerName: service.practitioner.businessName,

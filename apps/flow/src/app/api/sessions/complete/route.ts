@@ -26,7 +26,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Session not active" }, { status: 409 });
   }
 
-  // Calculate streak
   const lastSession = await db.flowSession.findFirst({
     where: { userId: userSession.user.id, status: "COMPLETED", id: { not: flowSession.id } },
     orderBy: { completedAt: "desc" },
@@ -36,7 +35,6 @@ export async function POST(req: Request) {
     ? (lastSession.streakDay + 1)
     : 1;
 
-  // Deduct from wallet and mark session complete atomically
   const [, updatedWallet] = await db.$transaction([
     db.flowSession.update({
       where: { id: flowSession.id },
@@ -44,15 +42,15 @@ export async function POST(req: Request) {
     }),
     db.flowWallet.update({
       where: { id: flowSession.walletId },
-      data: { balanceCents: { decrement: flowSession.costCents } },
+      data: { balancePaise: { decrement: flowSession.costPaise } },
     }),
   ]);
 
-  // Send low balance email if under $0.50
-  if (updatedWallet.balanceCents < 50 && userSession.user.email) {
+  // Send low balance alert if under ₹5
+  if (updatedWallet.balancePaise < 500 && userSession.user.email) {
     const emailContent = flowLowBalanceEmail({
       userName: userSession.user.name || "there",
-      balanceCents: updatedWallet.balanceCents,
+      balanceCents: updatedWallet.balancePaise,
       topupUrl: "https://flow.influxwise.com/wallet",
     });
     await sendEmail({ to: userSession.user.email, ...emailContent }).catch(() => {});
@@ -60,7 +58,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     success: true,
-    newBalance: updatedWallet.balanceCents,
+    newBalance: updatedWallet.balancePaise,
     streakDay,
   });
 }
