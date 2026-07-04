@@ -89,7 +89,7 @@ export async function createShieldSubscription({
   const rzPlan = await razorpay.plans.create({
     period: "monthly",
     interval: 1,
-    item: { name, amount, unit: "month", currency: "INR" },
+    item: { name, amount, currency: "INR" },
     notes: { plan, app: "shield" },
   });
 
