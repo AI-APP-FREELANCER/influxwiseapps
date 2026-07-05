@@ -98,7 +98,7 @@ export default function SparkDashboard() {
       });
       const job = await res.json();
       if (job.jobId) {
-        const newJob: Job = { id: job.jobId, inputType: mode.toUpperCase(), status: "PENDING", costCents: 25, createdAt: new Date().toISOString() };
+        const newJob: Job = { id: job.jobId, inputType: mode.toUpperCase(), status: "PENDING", costCents: costForMode, createdAt: new Date().toISOString() };
         setActiveJob(newJob);
         setJobs((prev) => [newJob, ...prev]);
         setText(""); setUrl(""); setFile(null);
@@ -108,22 +108,28 @@ export default function SparkDashboard() {
     }
   }
 
-  const costForMode = mode === "text" || mode === "url" ? 25 : 50;
+  const costForMode = mode === "text" || mode === "url" ? 2500 : 5000; // paise
+  const insufficientBalance = balance < costForMode;
 
   return (
     <div className="min-h-screen bg-charcoal">
       {/* Top nav */}
       <div className="border-b border-white/5 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center">
-            <Zap className="w-4 h-4 text-charcoal" />
+        <div className="flex items-center gap-3">
+          <NextLink href="/" className="text-white/30 hover:text-white transition-colors">
+            <ArrowRight className="w-4 h-4 rotate-180" />
+          </NextLink>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center">
+              <Zap className="w-4 h-4 text-charcoal" />
+            </div>
+            <span className="font-bold">Spark</span>
           </div>
-          <span className="font-bold">Spark</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm">
             <Coins className="w-4 h-4 text-brand-400" />
-            <span className="font-semibold">${(balance / 100).toFixed(2)}</span>
+            <span className="font-semibold">₹{(balance / 100).toFixed(2)}</span>
             <NextLink href="/wallet" className="text-xs text-brand-400 hover:text-brand-300 ml-1">Top up</NextLink>
           </div>
         </div>
@@ -199,13 +205,23 @@ export default function SparkDashboard() {
             )}
           </div>
 
+          {insufficientBalance && (
+            <div className="flex items-center justify-between bg-amber-900/20 border border-amber-600/30 rounded-xl px-4 py-3 mb-2">
+              <div className="text-amber-300 text-sm font-medium">
+                Wallet balance (₹{(balance / 100).toFixed(2)}) too low for this job (₹{(costForMode / 100).toFixed(2)})
+              </div>
+              <NextLink href="/wallet" className="text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ml-3">
+                Top up →
+              </NextLink>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="text-xs text-white/30">
-              Cost: <span className="text-brand-400 font-semibold">${(costForMode / 100).toFixed(2)}</span> from wallet
+              Cost: <span className="text-brand-400 font-semibold">₹{(costForMode / 100).toFixed(2)}</span> from wallet
             </div>
             <button
               onClick={handleSubmit}
-              disabled={submitting || (mode === "text" && text.length < 50) || (mode === "url" && !url) || (mode === "file" && !file) || balance < costForMode}
+              disabled={submitting || (mode === "text" && text.length < 50) || (mode === "url" && !url) || (mode === "file" && !file) || insufficientBalance}
               className="flex items-center gap-2 bg-brand-500 hover:bg-brand-400 disabled:opacity-40 disabled:cursor-not-allowed text-charcoal font-bold px-6 py-2.5 rounded-xl transition-colors"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}

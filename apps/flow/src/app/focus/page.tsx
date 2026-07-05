@@ -85,7 +85,7 @@ export default function FocusRoom() {
           </div>
           <h1 className="text-4xl font-extrabold mb-2">Session complete! 🔥</h1>
           <p className="text-white/50 mb-2">You earned a streak point.</p>
-          <p className="text-white/40 text-sm mb-8">${(session.cost / 100).toFixed(2)} deducted from wallet</p>
+          <p className="text-white/40 text-sm mb-8">₹{(session.cost / 100).toFixed(2)} deducted from wallet</p>
           <div className="flex gap-4 justify-center">
             <button
               onClick={() => { resetSession(); startSession(); }}
@@ -111,7 +111,7 @@ export default function FocusRoom() {
           <span className="font-bold">FocusBurner</span>
         </div>
         <div className="flex items-center gap-4 text-sm text-white/40">
-          <span>Wallet: <strong className="text-white">${(walletBalance / 100).toFixed(2)}</strong></span>
+          <span>Wallet: <strong className="text-white">₹{(walletBalance / 100).toFixed(2)}</strong></span>
           <Link href="/dashboard" className="hover:text-white/60 transition-colors">
             <X className="w-5 h-5" />
           </Link>
@@ -133,7 +133,7 @@ export default function FocusRoom() {
                     : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10"
                 }`}
               >
-                {SESSIONS[key].label} · ${(SESSIONS[key].cost / 100).toFixed(2)}
+                {SESSIONS[key].label} · ₹{(SESSIONS[key].cost / 100).toFixed(2)}
               </button>
             ))}
           </div>
@@ -208,7 +208,7 @@ export default function FocusRoom() {
 
         {started && !paused && (
           <p className="mt-6 text-white/20 text-xs text-center max-w-xs">
-            ${(session.cost / 100).toFixed(2)} will be deducted when the timer reaches zero.
+            ₹{(session.cost / 100).toFixed(2)} will be deducted when the timer reaches zero.
             Abandon at any time for free.
           </p>
         )}
