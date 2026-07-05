@@ -28,7 +28,7 @@ export default function FlowDashboard() {
 
   const completed = sessions.filter(s => s.status === "COMPLETED");
   const totalFocusMin = completed.reduce((acc, s) => acc + (s.type === "FOCUS_25" ? 25 : 50), 0);
-  const streak = sessions.length > 0 ? sessions[0].streakDay : 0;
+  const streak = sessions.length > 0 ? (sessions[0]?.streakDay ?? 0) : 0;
   const totalSpentPaise = completed.reduce((acc, s) => acc + s.costPaise, 0);
 
   const grouped = sessions.slice(0, 20).reduce<Record<string, FlowSession[]>>((acc, s) => {
