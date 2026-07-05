@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Zap, AlertCircle } from "lucide-react";
 
-export default function AuthError({ searchParams }: { searchParams: { error?: string } }) {
-  const msg = searchParams.error === "OAuthAccountNotLinked"
+export default async function AuthError({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const msg = error === "OAuthAccountNotLinked"
     ? "An account with this email already exists. Sign in with the original method."
-    : searchParams.error === "EmailSignin"
+    : error === "EmailSignin"
     ? "Could not send the magic link. Check your email address and try again."
     : "Something went wrong during sign in. Please try again.";
 
